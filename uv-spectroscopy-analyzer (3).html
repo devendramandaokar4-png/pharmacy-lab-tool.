@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>UV Spectroscopy Analyzer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+
+:root{
+  --blue:#2563eb;--blue-dark:#1e40af;--green:#10b981;--amber:#f59e0b;
+  --red:#ef4444;--bg:#f0f6ff;--card:#ffffff;--border:#dde4f0;
+  --text:#1e293b;--muted:#64748b;--sh:0 4px 20px rgba(15,23,42,.08);
+  --sh-lg:0 12px 40px rgba(15,23,42,.15);
+}
+
+html{font-size:16px;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;}
+
+/* ── Header ── */
+.header{text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--blue),var(--blue-dark));border-radius:18px;box-shadow:var(--sh-lg);margin-bottom:28px;}
+.header h1{font-size:clamp(1.5rem,4vw,2.6rem);font-weight:800;color:#fff;letter-spacing:-0.5px;margin-bottom:6px;}
+.header p{font-size:clamp(.85rem,2vw,1rem);color:rgba(255,255,255,.88);}
+
+/* ── Layout ── */
+.container{max-width:1400px;margin:0 auto;}
+.main-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+@media(max-width:760px){.main-grid{grid-template-columns:1fr;}}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:24px;box-shadow:var(--sh);position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:14px 14px 0 0;}
+.card-title{font-size:1.1rem;font-weight:700;color:var(--blue);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+.card-title::before{content:'';width:4px;height:20px;background:linear-gradient(180deg,var(--blue),var(--green));border-radius:2px;flex-shrink:0;}
+
+/* ── Wavelength input ── */
+.wl-wrap{margin-bottom:16px;}
+.wl-wrap label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px;color:var(--text);}
+
+/* ── Inputs ── */
+input[type="number"],input[type="text"]{
+  width:100%;padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);
+  border-radius:8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.88rem;
+  transition:border-color .2s,box-shadow .2s;
+}
+input:focus{outline:none;border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+
+/* ── Tables ── */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:12px;}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:.88rem;border-radius:10px;overflow:hidden;min-width:280px;}
+th{background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;font-weight:600;font-size:.82rem;padding:11px 13px;text-align:left;}
+td{padding:10px 13px;border-bottom:1px solid var(--border);background:var(--card);}
+tbody tr:hover td{background:rgba(37,99,235,.04);}
+tbody tr:last-child td{border-bottom:none;}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 22px;border:none;border-radius:10px;font-family:'Inter',sans-serif;font-weight:600;font-size:.92rem;cursor:pointer;transition:all .25s;white-space:nowrap;}
+.btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;box-shadow:0 4px 14px rgba(37,99,235,.3);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(37,99,235,.4);}
+.btn-green{background:linear-gradient(135deg,var(--green),#059669);color:#fff;box-shadow:0 4px 14px rgba(16,185,129,.3);}
+.btn-green:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,185,129,.4);}
+.btn-amber{background:linear-gradient(135deg,var(--amber),#d97706);color:#fff;box-shadow:0 4px 14px rgba(245,158,11,.3);}
+.btn-amber:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(245,158,11,.4);}
+.btn-red{padding:6px 11px;font-size:.78rem;background:linear-gradient(135deg,var(--red),#dc2626);color:#fff;box-shadow:0 2px 8px rgba(239,68,68,.3);}
+.btn-full{width:100%;margin-top:12px;}
+
+/* ── Action buttons row ── */
+.action-row{display:flex;flex-direction:column;gap:10px;margin-top:16px;}
+
+/* ── Chart ── */
+.chart-wrap{position:relative;height:420px;margin-top:16px;padding:20px;background:#fff;border-radius:10px;box-shadow:var(--sh);}
+@media(max-width:480px){.chart-wrap{height:280px;padding:12px;}}
+
+/* ── Results section ── */
+.results{background:linear-gradient(135deg,rgba(37,99,235,.05),rgba(16,185,129,.05));border:2px solid var(--blue);border-radius:14px;padding:28px;margin-top:20px;}
+.eq-display{background:#fff;padding:20px;border-radius:10px;margin:14px 0;border-left:5px solid var(--blue);font-family:'JetBrains Mono',monospace;font-size:1.1rem;text-align:center;box-shadow:var(--sh);}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px;}
+@media(max-width:480px){.stats-row{grid-template-columns:1fr;}}
+.stat{background:#fff;padding:16px;border-radius:10px;border:1.5px solid var(--border);text-align:center;box-shadow:var(--sh);}
+.stat-lbl{font-size:.82rem;color:var(--muted);font-weight:500;margin-bottom:6px;}
+.stat-val{font-size:1.4rem;font-weight:700;color:var(--blue);font-family:'JetBrains Mono',monospace;}
+.result-item{display:flex;justify-content:space-between;align-items:center;padding:15px 20px;background:#fff;border-radius:10px;margin-bottom:12px;border-left:5px solid var(--blue);box-shadow:var(--sh);}
+@media(max-width:480px){.result-item{flex-direction:column;gap:8px;text-align:center;}}
+.result-lbl{font-weight:600;font-size:.95rem;}
+.result-val{font-size:1.4rem;font-weight:700;color:var(--green);font-family:'JetBrains Mono',monospace;}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1e293b;color:#fff;padding:12px 24px;border-radius:40px;font-size:.9rem;font-weight:600;opacity:0;transition:all .35s;z-index:9999;white-space:nowrap;box-shadow:0 8px 30px rgba(0,0,0,.3);}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── Mobile number input fix ── */
+input[type=number]{-moz-appearance:textfield;}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header class="header">
+    <h1>🔬 UV Spectroscopy Analyzer</h1>
+    <p>Standard Curve Analysis &amp; Concentration Calculator</p>
+  </header>
+
+  <!-- Input Cards -->
+  <div class="main-grid">
+
+    <!-- Standard Data -->
+    <div class="card">
+      <div class="card-title">Standard Data</div>
+      <div class="wl-wrap">
+        <label for="wavelength">Wavelength (nm)</label>
+        <input type="number" id="wavelength" value="510" placeholder="e.g. 510">
+      </div>
+      <div class="tbl-wrap">
+        <table id="standardTable">
+          <thead><tr><th>Conc. (µg/ml)</th><th>Absorbance</th><th></th></tr></thead>
+          <tbody id="standardBody">
+            <tr><td><input type="number" class="conc-input" value="10" step="any"></td><td><input type="number" class="abs-input" value="0.121" step="any"></td><td><button class="btn btn-red" onclick="removeRow(this)">✕</button></td></tr>
+            <tr><td><input type="number" class="conc-input" value="20" step="any"></td><td><input type="number" class="abs-input" value="0.227" step="any"></td><td><button class="btn btn-red" onclick="removeRow(this)">✕</button></td></tr>
+            <tr><td><input type="number" class="conc-input" value="30" step="any"></td><td><input type="number" class="abs-input" value="0.293" step="any"></td><td><button class="btn btn-red" onclick="removeRow(this)">✕</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <button class="btn btn-green btn-full" onclick="addStandardRow()">＋ Add Standard Point</button>
+    </div>
+
+    <!-- Test Samples -->
+    <div class="card">
+      <div class="card-title">Test Samples</div>
+      <div class="tbl-wrap">
+        <table id="sampleTable">
+          <thead><tr><th>Sample ID</th><th>Absorbance</th><th></th></tr></thead>
+          <tbody id="sampleBody">
+            <tr><td><input type="text" class="sample-id-input" value="L8-A" placeholder="Sample ID"></td><td><input type="number" class="sample-abs-input" value="0.791" step="any"></td><td><button class="btn btn-red" onclick="removeSampleRow(this)">✕</button></td></tr>
+            <tr><td><input type="text" class="sample-id-input" value="L8-B" placeholder="Sample ID"></td><td><input type="number" class="sample-abs-input" value="0.783" step="any"></td><td><button class="btn btn-red" onclick="removeSampleRow(this)">✕</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <button class="btn btn-green btn-full" onclick="addSampleRow()">＋ Add Test Sample</button>
+      <div class="action-row">
+        <button class="btn btn-primary btn-full" onclick="calculateResults()">📈 Calculate Results</button>
+        <button class="btn btn-amber btn-full" onclick="generateReportImage()">📊 Download Report Image</button>
+      </div>
+    </div>
+
+  </div><!-- /main-grid -->
+
+  <!-- Chart -->
+  <div class="card">
+    <div class="card-title">Calibration Curve</div>
+    <div class="chart-wrap"><canvas id="calibrationChart"></canvas></div>
+  </div>
+
+  <!-- Hidden canvas for report -->
+  <canvas id="reportCanvas" style="display:none;"></canvas>
+
+  <!-- Results -->
+  <div class="results" id="resultsSection" style="display:none;">
+    <div class="card-title">Analysis Results</div>
+    <div class="eq-display" id="equationDisplay"></div>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-lbl">Slope (m)</div><div class="stat-val" id="slopeValue">—</div></div>
+      <div class="stat"><div class="stat-lbl">Intercept (c)</div><div class="stat-val" id="interceptValue">—</div></div>
+      <div class="stat"><div class="stat-lbl">R² Value</div><div class="stat-val" id="r2Value">—</div></div>
+    </div>
+    <div class="card-title" style="margin-top:24px;">Sample Concentrations</div>
+    <div id="sampleResults"></div>
+  </div>
+
+</div><!-- /container -->
+
+<div id="toast"></div>
+
+<script>
+/* ══ Utilities ══════════════════════════════════════════ */
+let chart = null;
+
+function showToast(msg, ms=2800){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), ms);
+}
+
+/* ══ Table helpers ══════════════════════════════════════ */
+function addStandardRow(){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><input type="number" class="conc-input" step="any" placeholder="Conc."></td><td><input type="number" class="abs-input" step="any" placeholder="Abs."></td><td><button class="btn btn-red" onclick="removeRow(this)">✕</button></td>`;
+  document.getElementById('standardBody').appendChild(tr);
+}
+function addSampleRow(){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><input type="text" class="sample-id-input" placeholder="Sample ID"></td><td><input type="number" class="sample-abs-input" step="any" placeholder="Abs."></td><td><button class="btn btn-red" onclick="removeSampleRow(this)">✕</button></td>`;
+  document.getElementById('sampleBody').appendChild(tr);
+}
+function removeRow(btn){btn.closest('tr').remove();}
+function removeSampleRow(btn){btn.closest('tr').remove();}
+
+/* ══ Data getters ════════════════════════════════════════ */
+function getStandardData(){
+  const cs=document.querySelectorAll('.conc-input');
+  const as=document.querySelectorAll('.abs-input');
+  const d=[];
+  for(let i=0;i<cs.length;i++){
+    const c=parseFloat(cs[i].value), a=parseFloat(as[i].value);
+    if(!isNaN(c)&&!isNaN(a)) d.push({conc:c,abs:a});
+  }
+  return d;
+}
+function getSampleData(){
+  const ids=document.querySelectorAll('.sample-id-input');
+  const as=document.querySelectorAll('.sample-abs-input');
+  const d=[];
+  for(let i=0;i<ids.length;i++){
+    const id=ids[i].value.trim(), a=parseFloat(as[i].value);
+    if(id&&!isNaN(a)) d.push({id,abs:a});
+  }
+  return d;
+}
+
+/* ══ Linear regression ═══════════════════════════════════ */
+function linearRegression(data){
+  const n=data.length;
+  let sx=0,sy=0,sxy=0,sx2=0,sy2=0;
+  data.forEach(p=>{sx+=p.conc;sy+=p.abs;sxy+=p.conc*p.abs;sx2+=p.conc*p.conc;sy2+=p.abs*p.abs;});
+  const slope=(n*sxy-sx*sy)/(n*sx2-sx*sx);
+  const intercept=(sy-slope*sx)/n;
+  const meanY=sy/n;
+  let ssRes=0,ssTot=0;
+  data.forEach(p=>{const yh=slope*p.conc+intercept;ssRes+=(p.abs-yh)**2;ssTot+=(p.abs-meanY)**2;});
+  const r2=1-(ssRes/ssTot);
+  return {slope,intercept,r2};
+}
+
+/* ══ Calculate & render UI results ══════════════════════ */
+function calculateResults(){
+  const stdData=getStandardData(), smpData=getSampleData();
+  if(stdData.length<2){showToast('⚠️ Need at least 2 standard points');return;}
+  const {slope,intercept,r2}=linearRegression(stdData);
+  document.getElementById('slopeValue').textContent=slope.toFixed(4);
+  document.getElementById('interceptValue').textContent=intercept.toFixed(4);
+  document.getElementById('r2Value').textContent=r2.toFixed(4);
+  const wl=document.getElementById('wavelength').value;
+  document.getElementById('equationDisplay').innerHTML=
+    `y = ${slope.toFixed(4)}x + ${intercept.toFixed(4)}&nbsp;&nbsp;&nbsp;
+     <span style="font-size:.9em;color:var(--muted)">R² = ${r2.toFixed(4)}</span>`;
+  const html=smpData.map(s=>{
+    const c=((s.abs-intercept)/slope).toFixed(2);
+    return `<div class="result-item"><span class="result-lbl">${s.id}</span><span class="result-val">${c} µg/ml</span></div>`;
+  }).join('');
+  document.getElementById('sampleResults').innerHTML=html;
+  document.getElementById('resultsSection').style.display='block';
+  updateChart(stdData,smpData,slope,intercept);
+}
+
+/* ══ Chart.js calibration curve ═════════════════════════ */
+function updateChart(stdData,smpData,slope,intercept){
+  const ctx=document.getElementById('calibrationChart').getContext('2d');
+  const maxX=Math.max(...stdData.map(d=>d.conc),...smpData.map(s=>(s.abs-intercept)/slope))+20;
+  const regLine=[];
+  for(let x=0;x<=maxX;x+=1) regLine.push({x,y:slope*x+intercept});
+  const smpPts=smpData.map(s=>({x:(s.abs-intercept)/slope,y:s.abs,id:s.id}));
+  const annotations={};
+  smpData.forEach((s,i)=>{
+    const c=(s.abs-intercept)/slope;
+    annotations[`h${i}`]={type:'line',yMin:s.abs,yMax:s.abs,xMin:0,xMax:c,borderColor:'rgba(220,20,60,.65)',borderWidth:2,borderDash:[5,5]};
+    annotations[`v${i}`]={type:'line',xMin:c,xMax:c,yMin:0,yMax:s.abs,borderColor:'rgba(220,20,60,.65)',borderWidth:2,borderDash:[5,5],label:{display:true,content:`${s.id}: ${c.toFixed(2)}`,position:'end',backgroundColor:'rgba(107,94,255,.9)',color:'#fff',font:{size:11,weight:'bold'}}};
+  });
+  if(chart) chart.destroy();
+  chart=new Chart(ctx,{
+    type:'scatter',
+    data:{datasets:[
+      {label:'Regression Line',data:regLine,type:'line',borderColor:'#DC143C',borderWidth:2.5,pointRadius:0,fill:false,tension:0,order:2},
+      {label:'Standard Points',data:stdData.map(d=>({x:d.conc,y:d.abs})),backgroundColor:'#4169E1',borderColor:'#fff',borderWidth:2,pointRadius:7,order:1},
+      {label:'Test Samples',data:smpPts,backgroundColor:'#6B5EFF',borderColor:'#fff',borderWidth:2,pointRadius:9,order:0}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,position:'top',labels:{color:'#1e293b',font:{family:'Inter',size:12,weight:'500'},usePointStyle:true,padding:12}},
+        tooltip:{backgroundColor:'rgba(255,255,255,.98)',titleColor:'#2563eb',bodyColor:'#1e293b',borderColor:'#e2e8f0',borderWidth:2,padding:12,callbacks:{label:function(ctx2){const dl=ctx2.dataset.label||'';if(dl==='Test Samples'){const pt=smpPts[ctx2.dataIndex];return `${pt.id}: ${ctx2.parsed.x.toFixed(2)} µg/ml, Abs ${ctx2.parsed.y.toFixed(3)}`;}return `Conc: ${ctx2.parsed.x.toFixed(2)} µg/ml, Abs: ${ctx2.parsed.y.toFixed(3)}`;}},titleFont:{size:12,weight:'600'},bodyFont:{family:'JetBrains Mono',size:11}},
+        annotation:{annotations}
+      },
+      scales:{
+        x:{type:'linear',min:0,max:maxX,title:{display:true,text:'Concentration (µg/ml)',color:'#1e293b',font:{family:'Inter',size:13,weight:'600'}},grid:{color:'#e2e8f0'},ticks:{color:'#64748b',font:{family:'JetBrains Mono',size:11}}},
+        y:{type:'linear',min:0,title:{display:true,text:'Absorbance',color:'#1e293b',font:{family:'Inter',size:13,weight:'600'}},grid:{color:'#e2e8f0'},ticks:{color:'#64748b',font:{family:'JetBrains Mono',size:11}}}
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   REPORT IMAGE GENERATION — matches reference exactly
+   ══════════════════════════════════════════════════════════ */
+function generateReportImage(){
+  const stdData=getStandardData(), smpData=getSampleData();
+  const wl=document.getElementById('wavelength').value||'510';
+  if(stdData.length<2){showToast('⚠️ Need at least 2 standard points');return;}
+  if(smpData.length===0){showToast('⚠️ Add at least one test sample');return;}
+  const {slope,intercept,r2}=linearRegression(stdData);
+  const canvas=document.getElementById('reportCanvas');
+  const ctx=canvas.getContext('2d');
+  const W=2200, H=900;
+  canvas.width=W; canvas.height=H;
+
+  // Outer background
+  ctx.fillStyle='#a8c8e8'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#c8dff0'; ctx.fillRect(6,6,W-12,H-12);
+
+  // Title bar
+  ctx.fillStyle='#c0d8ee';
+  rr(ctx,12,12,W-24,76,8,true,false);
+  ctx.strokeStyle='#7aaac8'; ctx.lineWidth=2;
+  rr(ctx,12,12,W-24,76,8,false,true);
+  ctx.fillStyle='#111'; ctx.font='bold 46px Arial';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('ESTIMATION OF FLAVONOIDS - STANDARD CURVE ANALYSIS',W/2,50);
+
+  // Three columns
+  const colY=96, colH=H-108;
+  drawCol1(ctx,10,colY,420,colH,stdData,smpData,wl);
+  drawCol2(ctx,438,colY,880,colH,stdData,smpData,slope,intercept,r2,wl);
+  drawCol3(ctx,1326,colY,W-1326-10,colH,smpData,slope,intercept);
+
+  // Download
+  try{
+    const url=canvas.toDataURL('image/png');
+    const a=document.createElement('a');
+    a.download='UV_Report_'+Date.now()+'.png';
+    a.href=url;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    showToast('✅ Report downloaded!');
+  }catch(e){showToast('❌ Error: '+e.message);}
+}
+
+/* ── Rounded rectangle helper ──────────────────────────── */
+function rr(ctx,x,y,w,h,r,fill,stroke){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+  if(fill) ctx.fill();
+  if(stroke) ctx.stroke();
+}
+
+/* ── Column 1: Standard & Test Data ────────────────────── */
+function drawCol1(ctx,sx,sy,sw,sh,std,smp,wl){
+  ctx.fillStyle='#ddeefa'; rr(ctx,sx,sy,sw,sh,10,true,false);
+  ctx.strokeStyle='#7aaac8'; ctx.lineWidth=2.5; rr(ctx,sx,sy,sw,sh,10,false,true);
+
+  // Header
+  ctx.fillStyle='#b8d0e8'; rr(ctx,sx,sy,sw,52,10,true,false);
+  ctx.fillStyle='#000'; ctx.font='bold 24px Arial';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('1. STANDARD & TEST DATA',sx+sw/2,sy+26);
+
+  const tx=sx+14, tw=sw-28, cA=tx+tw*0.42;
+  let ry=sy+60;
+
+  // Col headers
+  const hh=52;
+  ctx.fillStyle='#c8dff0'; ctx.fillRect(tx,ry,tw,hh);
+  ctx.strokeStyle='#5588aa'; ctx.lineWidth=1.5; ctx.strokeRect(tx,ry,tw,hh);
+  ctx.beginPath(); ctx.moveTo(cA,ry); ctx.lineTo(cA,ry+hh); ctx.stroke();
+  ctx.fillStyle='#000'; ctx.font='bold 19px Arial'; ctx.textBaseline='alphabetic';
+  ctx.textAlign='center';
+  ctx.fillText('Conc.',(tx+cA)/2,ry+22); ctx.fillText('(µg/ml)',(tx+cA)/2,ry+43);
+  ctx.fillText('Absorbance',(cA+tx+tw)/2,ry+22); ctx.fillText('('+wl+' nm)',(cA+tx+tw)/2,ry+43);
+  ry+=hh;
+
+  // Distribute rows
+  const rem=sh-(ry-sy)-16;
+  const total=std.length+1+smp.length;
+  const rh=Math.max(34,Math.floor(rem/total));
+
+  ctx.font='bold 20px Arial';
+  for(let i=0;i<std.length;i++){
+    ctx.fillStyle=i%2===0?'#f0f8ff':'#fff';
+    ctx.fillRect(tx,ry,tw,rh);
+    ctx.strokeStyle='#aaccdd'; ctx.lineWidth=1; ctx.strokeRect(tx,ry,tw,rh);
+    ctx.beginPath(); ctx.moveTo(cA,ry); ctx.lineTo(cA,ry+rh); ctx.stroke();
+    ctx.fillStyle='#111'; ctx.textBaseline='middle'; ctx.textAlign='center';
+    ctx.fillText(std[i].conc,(tx+cA)/2,ry+rh/2);
+    ctx.fillText(std[i].abs.toFixed(3),(cA+tx+tw)/2,ry+rh/2);
+    ry+=rh;
+  }
+  // Test samples header
+  ctx.fillStyle='#f5d76e'; ctx.fillRect(tx,ry,tw,rh);
+  ctx.strokeStyle='#c8aa44'; ctx.lineWidth=1.5; ctx.strokeRect(tx,ry,tw,rh);
+  ctx.fillStyle='#332200'; ctx.textBaseline='middle'; ctx.textAlign='center';
+  ctx.fillText('Test Samples',tx+tw/2,ry+rh/2); ry+=rh;
+  // Sample rows
+  for(let i=0;i<smp.length;i++){
+    ctx.fillStyle='#fffbe6'; ctx.fillRect(tx,ry,tw,rh);
+    ctx.strokeStyle='#c8aa44'; ctx.lineWidth=1; ctx.strokeRect(tx,ry,tw,rh);
+    ctx.beginPath(); ctx.moveTo(cA,ry); ctx.lineTo(cA,ry+rh); ctx.stroke();
+    ctx.fillStyle='#111'; ctx.textBaseline='middle'; ctx.textAlign='center';
+    ctx.fillText(smp[i].id,(tx+cA)/2,ry+rh/2);
+    ctx.fillText(smp[i].abs.toFixed(3),(cA+tx+tw)/2,ry+rh/2);
+    ry+=rh;
+  }
+}
+
+/* ── Column 2: Calibration Graph ───────────────────────── */
+function drawCol2(ctx,sx,sy,sw,sh,std,smp,slope,intercept,r2,wl){
+  ctx.fillStyle='#ddeefa'; rr(ctx,sx,sy,sw,sh,10,true,false);
+  ctx.strokeStyle='#7aaac8'; ctx.lineWidth=2.5; rr(ctx,sx,sy,sw,sh,10,false,true);
+
+  // Header
+  ctx.fillStyle='#b8d0e8'; rr(ctx,sx,sy,sw,52,10,true,false);
+  ctx.fillStyle='#000'; ctx.font='bold 24px Arial';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('2. CALIBRATION GRAPH ('+wl+' nm)',sx+sw/2,sy+26);
+
+  const gx=sx+92, gy=sy+68, gw=sw-112, gh=sh-148;
+  ctx.fillStyle='#fff'; ctx.fillRect(gx,gy,gw,gh);
+
+  // Scale
+  const allC=[...std.map(d=>d.conc),...smp.map(s=>(s.abs-intercept)/slope)];
+  const allA=[...std.map(d=>d.abs),...smp.map(s=>s.abs)];
+  const rawMaxC=Math.max(...allC), rawMaxA=Math.max(...allA);
+  function niceUp(v,n){const st=(v*1.18)/n;const mg=Math.pow(10,Math.floor(Math.log10(st)));return Math.ceil(st/mg)*mg*n;}
+  const nX=5,nY=5, maxC=niceUp(rawMaxC,nX), maxA=niceUp(rawMaxA,nY);
+  const scX=gw/maxC, scY=gh/maxA;
+  const cpx=v=>gx+v*scX, cpy=v=>gy+gh-v*scY;
+
+  // Grid
+  ctx.strokeStyle='#dce8f0'; ctx.lineWidth=1;
+  for(let i=1;i<=nY;i++){const yp=gy+gh-(i/nY)*gh;ctx.beginPath();ctx.moveTo(gx,yp);ctx.lineTo(gx+gw,yp);ctx.stroke();}
+  for(let i=1;i<=nX;i++){const xp=gx+(i/nX)*gw;ctx.beginPath();ctx.moveTo(xp,gy);ctx.lineTo(xp,gy+gh);ctx.stroke();}
+
+  // Clip
+  ctx.save(); ctx.beginPath(); ctx.rect(gx,gy,gw,gh); ctx.clip();
+
+  // Regression line (y≥0 clamped)
+  const lx1=intercept<0?-intercept/slope:0;
+  ctx.strokeStyle='#aa0000'; ctx.lineWidth=3.5;
+  ctx.beginPath(); ctx.moveTo(cpx(lx1),cpy(slope*lx1+intercept)); ctx.lineTo(cpx(rawMaxC),cpy(slope*rawMaxC+intercept)); ctx.stroke();
+
+  // Standard points
+  std.forEach(pt=>{
+    ctx.fillStyle='#2255bb'; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(cpx(pt.conc),cpy(pt.abs),9,0,2*Math.PI); ctx.fill(); ctx.stroke();
+  });
+
+  // Sample guides + arrows
+  smp.forEach(s=>{
+    const sc=(s.abs-intercept)/slope;
+    const spx=cpx(sc), spy=cpy(s.abs);
+    ctx.strokeStyle='#aa0000'; ctx.lineWidth=2.2; ctx.setLineDash([8,5]);
+    ctx.beginPath(); ctx.moveTo(gx,spy); ctx.lineTo(spx,spy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(spx,spy); ctx.lineTo(spx,gy+gh); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#aa0000';
+    ctx.beginPath(); ctx.moveTo(spx,gy+gh-2); ctx.lineTo(spx-10,gy+gh-22); ctx.lineTo(spx+10,gy+gh-22); ctx.closePath(); ctx.fill();
+  });
+  ctx.restore();
+
+  // Axes
+  ctx.strokeStyle='#222'; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx,gy+gh); ctx.lineTo(gx+gw,gy+gh); ctx.stroke();
+
+  // Y ticks + labels
+  ctx.fillStyle='#000'; ctx.font='bold 18px Arial'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  ctx.strokeStyle='#222'; ctx.lineWidth=2;
+  for(let i=0;i<=nY;i++){
+    const val=parseFloat(((i/nY)*maxA).toFixed(3));
+    const yp=gy+gh-(i/nY)*gh;
+    ctx.beginPath(); ctx.moveTo(gx-7,yp); ctx.lineTo(gx,yp); ctx.stroke();
+    ctx.fillText(val.toFixed(1),gx-11,yp);
+  }
+  // X ticks + labels
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(let i=0;i<=nX;i++){
+    const val=(i/nX)*maxC, xp=gx+(i/nX)*gw;
+    ctx.beginPath(); ctx.moveTo(xp,gy+gh); ctx.lineTo(xp,gy+gh+8); ctx.stroke();
+    ctx.fillText(Number.isInteger(val)?val:val.toFixed(1),xp,gy+gh+12);
+  }
+
+  // Absorbance labels (red) on Y axis for samples
+  smp.forEach(s=>{
+    ctx.fillStyle='#aa0000'; ctx.font='bold 18px Arial';
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText(s.abs.toFixed(3),gx-11,cpy(s.abs));
+  });
+
+  // Sample ID labels above arrows (inside graph)
+  smp.forEach(s=>{
+    const sc=(s.abs-intercept)/slope;
+    ctx.fillStyle='#111'; ctx.font='bold 19px Arial';
+    ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ctx.fillText(s.id,cpx(sc),gy+gh-26);
+  });
+
+  // Equation box
+  const eqx=gx+12,eqy=gy+12,eqw=360,eqh=68;
+  ctx.fillStyle='rgba(255,255,255,.93)'; ctx.strokeStyle='#aaa'; ctx.lineWidth=1.5;
+  rr(ctx,eqx,eqy,eqw,eqh,5,true,true);
+  ctx.fillStyle='#000'; ctx.font='bold 19px Arial'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillText('y = '+slope.toFixed(4)+'x + '+intercept.toFixed(4),eqx+14,eqy+28);
+  ctx.fillText('R² = '+r2.toFixed(3),eqx+14,eqy+56);
+
+  // Axis titles
+  ctx.fillStyle='#000'; ctx.font='bold 21px Arial'; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('Concentration (µg/ml)',gx+gw/2,gy+gh+46);
+  ctx.save(); ctx.translate(gx-68,gy+gh/2); ctx.rotate(-Math.PI/2);
+  ctx.textBaseline='alphabetic'; ctx.fillText('Absorbance',0,0); ctx.restore();
+}
+
+/* ── Column 3: Calculation & Results ───────────────────── */
+function drawCol3(ctx,sx,sy,sw,sh,smp,slope,intercept){
+  ctx.fillStyle='#ddeefa'; rr(ctx,sx,sy,sw,sh,10,true,false);
+  ctx.strokeStyle='#7aaac8'; ctx.lineWidth=2.5; rr(ctx,sx,sy,sw,sh,10,false,true);
+
+  // Header
+  ctx.fillStyle='#b8d0e8'; rr(ctx,sx,sy,sw,52,10,true,false);
+  ctx.fillStyle='#000'; ctx.font='bold 24px Arial';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('3. CALCULATION & RESULTS',sx+sw/2,sy+26);
+
+  const pad=26;
+  let fy=sy+72;
+
+  // General formula
+  ctx.fillStyle='#000'; ctx.font='bold 21px Arial'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillText('Concentration (x) =',sx+pad,fy); fy+=32;
+
+  const fx=sx+pad+16, fw=sw-pad*2-16;
+  ctx.font='bold 21px Arial'; ctx.textAlign='center';
+  ctx.fillText('Absorbance (y) − '+intercept.toFixed(4),fx+fw/2,fy); fy+=8;
+  ctx.strokeStyle='#000'; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(fx+fw,fy); ctx.stroke(); fy+=26;
+  ctx.fillText(slope.toFixed(4),fx+fw/2,fy); fy+=46;
+
+  // Divider
+  ctx.strokeStyle='#8eb0cc'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(sx+pad,fy); ctx.lineTo(sx+sw-pad,fy); ctx.stroke(); fy+=22;
+
+  // Per-sample working
+  for(let i=0;i<smp.length;i++){
+    const s=smp[i], conc=(s.abs-intercept)/slope;
+    ctx.fillStyle='#000'; ctx.font='bold 21px Arial'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    ctx.fillText(s.id+':',sx+pad,fy); fy+=28;
+
+    const sfx=sx+pad+18, sfw=sw-pad*2-18-130;
+    ctx.font='20px Arial';
+    ctx.fillText('x = '+s.abs.toFixed(3)+' − '+intercept.toFixed(4),sfx,fy); fy+=6;
+    ctx.strokeStyle='#000'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(sfx,fy); ctx.lineTo(sfx+sfw,fy); ctx.stroke(); fy+=24;
+    ctx.textAlign='center';
+    ctx.fillText(slope.toFixed(4),sfx+sfw/2,fy);
+    ctx.font='bold 21px Arial'; ctx.fillStyle='#003399'; ctx.textAlign='left';
+    ctx.fillText('= '+conc.toFixed(2)+' µg/ml',sfx+sfw+14,fy-10);
+    ctx.fillStyle='#000'; fy+=40;
+
+    if(i<smp.length-1){
+      ctx.strokeStyle='#aaccdd'; ctx.lineWidth=1; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(sx+pad,fy-8); ctx.lineTo(sx+sw-pad,fy-8); ctx.stroke();
+      ctx.setLineDash([]); fy+=8;
+    }
+  }
+  fy+=22;
+
+  // Final Results table
+  const tx=sx+pad, tw=sw-pad*2;
+  ctx.fillStyle='#88c4d8'; ctx.strokeStyle='#222'; ctx.lineWidth=2;
+  ctx.fillRect(tx,fy,tw,46); ctx.strokeRect(tx,fy,tw,46);
+  ctx.fillStyle='#000'; ctx.font='bold 22px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('FINAL RESULTS',tx+tw/2,fy+23); fy+=46;
+
+  const rh=40;
+  ctx.fillStyle='#d8eeff'; ctx.fillRect(tx,fy,tw,rh);
+  ctx.strokeStyle='#222'; ctx.lineWidth=1.5; ctx.strokeRect(tx,fy,tw,rh);
+  ctx.beginPath(); ctx.moveTo(tx+tw/2,fy); ctx.lineTo(tx+tw/2,fy+rh); ctx.stroke();
+  ctx.fillStyle='#000'; ctx.font='bold 20px Arial'; ctx.textBaseline='middle';
+  ctx.fillText('Sample',tx+tw/4,fy+rh/2); ctx.fillText('Conc. (µg/ml)',tx+3*tw/4,fy+rh/2); fy+=rh;
+
+  for(let i=0;i<smp.length;i++){
+    const s=smp[i], conc=(s.abs-intercept)/slope;
+    ctx.fillStyle=i%2===0?'#f4faff':'#fff'; ctx.fillRect(tx,fy,tw,rh);
+    ctx.strokeStyle='#aaa'; ctx.lineWidth=1.5; ctx.strokeRect(tx,fy,tw,rh);
+    ctx.beginPath(); ctx.moveTo(tx+tw/2,fy); ctx.lineTo(tx+tw/2,fy+rh); ctx.stroke();
+    ctx.fillStyle='#111'; ctx.font='bold 20px Arial'; ctx.textBaseline='middle'; ctx.textAlign='center';
+    ctx.fillText(s.id,tx+tw/4,fy+rh/2); ctx.fillText(conc.toFixed(2),tx+3*tw/4,fy+rh/2); fy+=rh;
+  }
+}
+
+/* ── Init ─────────────────────────────────────────────── */
+window.addEventListener('load',()=>calculateResults());
+</script>
+</body>
+</html>
